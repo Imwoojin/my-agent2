@@ -70,68 +70,97 @@ agent = create_agent(
 )
 
 
-# 3. Streamlit 화면 구성
+
+# 3. 화면 구성
 st.title("💱 Exchange Mate")
-st.caption("AI와 대화하며 간편하게 환율을 확인하세요.")
+st.caption("AI CURRENCY ASSISTANT")
+st.write("AI와 대화하며 전 세계 환율을 간편하게 확인하세요.")
 st.divider()
-
-# 안내 영역
-with st.container(border=True):
-    st.subheader("💬 무엇을 도와드릴까요?")
-    st.write("궁금한 환율이나 환전할 금액을 자유롭게 질문해 보세요.")
-    st.info("💡 예시: 100달러는 원화로 얼마야? / 1유로는 엔화로 얼마야?")
-
 
 # 4. 채팅 기록 저장
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# 5. 사이드바
+with st.sidebar:
+    st.header("💱 Exchange Mate")
+    st.write("AI 환율 조회 서비스")
+    st.divider()
 
-# 5. 대화 초기화 버튼
-col1, col2 = st.columns([4, 1])
-
-with col2:
-    if st.button("🗑️ 초기화", use_container_width=True):
+    if st.button("🗑️ 대화 초기화", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
+    st.divider()
+    st.caption("데이터 제공: Frankfurter API")
+    st.caption("최신 일별 기준 환율을 사용합니다.")
 
-# 6. 사용자 질문 입력
-prompt = st.chat_input("환율이나 환전할 금액을 질문해 보세요.")
+# 6. 첫 화면 안내
+prompt = None
 
+if not st.session_state.messages:
+    with st.container(border=True):
+        st.subheader("👋 안녕하세요!")
+        st.write("어떤 환율이 궁금하신가요?")
+        st.write("궁금한 내용을 직접 입력하거나 아래 질문을 선택해 보세요.")
+
+    st.write("**💡 추천 질문**")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("💵 100달러는 몇 원이야?", use_container_width=True):
+            prompt = "100달러는 원화로 얼마야?"
+
+        if st.button("🇪🇺 오늘 유로 환율 알려줘", use_container_width=True):
+            prompt = "오늘 유로 환율 알려줘."
+
+    with col2:
+        if st.button("🇯🇵 1,000엔은 얼마야?", use_container_width=True):
+            prompt = "1000엔은 원화로 얼마야?"
+
+        if st.button("💱 50만원은 몇 달러야?", use_container_width=True):
+            prompt = "50만원은 몇 달러야?"
+
+# 7. 이전 대화 출력
+for message in st.session_state.messages:
+    if message["role"] == "user":
+        avatar = "👤"
+    else:
+        avatar = "🤖"
+
+    with st.chat_message(message["role"], avatar=avatar):
+        st.markdown(message["content"])
+
+# 8. 사용자 질문 입력
+chat_prompt = st.chat_input("환율에 대해 무엇이든 물어보세요...")
+
+if chat_prompt:
+    prompt = chat_prompt
+
+# 9. AI Agent 실행
 if prompt:
-    with st.spinner("💱 최신 환율을 확인하고 있어요..."):
-        response = agent.invoke({
-            "messages": st.session_state.messages + [
-                {"role": "user", "content": prompt}
-            ]
-        })
-
-    answer = response["messages"][-1].content
-
     st.session_state.messages.append({
         "role": "user",
         "content": prompt
     })
+
+    with st.chat_message("user", avatar="👤"):
+        st.write(prompt)
+
+    with st.chat_message("assistant", avatar="🤖"):
+        with st.spinner("💱 환율을 조회하고 있어요..."):
+            response = agent.invoke({
+                "messages": st.session_state.messages
+            })
+
+            answer = response["messages"][-1].content
+            st.markdown(answer)
 
     st.session_state.messages.append({
         "role": "assistant",
         "content": answer
     })
 
-
-# 7. 채팅 내역 출력
-for message in st.session_state.messages:
-
-    if message["role"] == "user":
-        avatar = "👤"
-    else:
-        avatar = "💱"
-
-    with st.chat_message(message["role"], avatar=avatar):
-        st.markdown(message["content"])
-
-
-# 8. 하단 안내 문구
-st.divider()
-st.caption("📊 환율 데이터 제공: Frankfurter API | 최신 일별 기준 환율")
+# 10. 하단 안내
+st.caption("※ Frankfurter의 일별 기준 환율이며 실제 환전 시 적용 환율과 다를 수 있습니다.")
